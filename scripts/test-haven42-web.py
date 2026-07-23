@@ -97,6 +97,15 @@ def request_json(
         return error.code, json.loads(error.read()), dict(error.headers)
 
 
+def wait_until(predicate, timeout_seconds: float = 2.0) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.02)
+    return predicate()
+
+
 def main() -> int:
     checks = 0
     fake = ThreadingHTTPServer(("127.0.0.1", 0), FakeOllama)
@@ -273,8 +282,7 @@ def main() -> int:
         assert active_target is not None
         state._idle_unload(active_target, stale_generation)
         assert FakeState.loaded == {"qwen3.5:9b"}
-        time.sleep(0.2)
-        assert not FakeState.loaded
+        assert wait_until(lambda: not FakeState.loaded), "idle cleanup did not finish within two seconds"
         checks += 4
 
         status, error, _ = request_json(
