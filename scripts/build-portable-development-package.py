@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import zipfile
 
 
@@ -189,7 +190,13 @@ def main() -> int:
         }],
         "buildDependencies": dependencies,
     })
-    package_files = package_file_records(package_dir)
+    archive_staging = tempfile.TemporaryDirectory(
+        prefix="haven42-archive-staging-",
+        dir=output,
+    )
+    staged_package_dir = Path(archive_staging.name) / "haven42"
+    shutil.copytree(package_dir, staged_package_dir, symlinks=False)
+    package_files = package_file_records(staged_package_dir)
     write_json(evidence / "package-file-inventory.json", {
         "schemaVersion": 1,
         "algorithm": "sha256",
@@ -260,7 +267,8 @@ def main() -> int:
     ]
     notices.extend(f"{item['name']} {item['version']} — {item['license']}" for item in dependencies)
     (evidence / "THIRD-PARTY-NOTICES.txt").write_text("\n".join(notices) + "\n", encoding="utf-8")
-    archive = create_archive(package_dir, artifact_dir, target)
+    archive = create_archive(staged_package_dir, artifact_dir, target)
+    archive_staging.cleanup()
     for path in sorted(evidence.iterdir()):
         shutil.copy2(path, artifact_dir)
     checksum_targets = [
