@@ -141,7 +141,9 @@ def create_archive(package_dir: Path, artifact_dir: Path, target: str) -> Path:
                     output.write(path, Path("haven42") / path.relative_to(package_dir))
         return archive
     archive = artifact_dir / f"haven42-{target}-unsigned-development.tar.gz"
-    with tarfile.open(archive, "w:gz") as output:
+    # PyInstaller uses platform-native symlinks on macOS. Portable archives
+    # materialize their targets so extraction never creates archive-owned links.
+    with tarfile.open(archive, "w:gz", dereference=True) as output:
         output.add(package_dir, arcname="haven42", recursive=True)
     return archive
 
